@@ -108,7 +108,7 @@ cat <<EOF >/tmp/requisition.json
       "interface": [
         {
           "ip-addr": "$LOCAL_IP",
-          "descr": "$LOCAL_INTF"
+          "descr": "$LOCAL_INTF",
           "snmp-primary": "P"
         },
         {
@@ -139,13 +139,13 @@ cat <<EOF >/tmp/foreignsource.json
       "name": "SNMP",
       "class": "org.opennms.netmgt.provision.detector.snmp.SnmpDetector"
     }
-  ]
+  ],
   "policies": []
 }
 EOF
 
 curl -v -u "admin:admin" \
-  -H "Content-Type: application/json" -d @/tmp/requisition.json \
+  -H "Content-Type: application/json" -d @/tmp/foreignsource.json \
   http://localhost:8980/opennms/rest/foreignSources
 
 curl -v -u "admin:admin" -X PUT \
