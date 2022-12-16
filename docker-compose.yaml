@@ -1,0 +1,228 @@
+---
+services:
+  cassandra:
+    image: cassandra:4.1
+    hostname: cassandra
+    container_name: cassandra
+    environment:
+      TZ: America/New_York
+      CASSANDRA_CLUSTER_NAME: OpenNMS
+      MAX_HEAP_SIZE: 2g
+      HEAP_NEWSIZE: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(nodetool status -r | grep cassandra | awk '{print $1}') = UN ]"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    hostname: zookeeper
+    container_name: zookeeper
+    environment:
+      TZ: America/New_York
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOO_4LW_COMMANDS_WHITELIST: ruok,stat
+    healthcheck:
+      test: echo ruok | nc zookeeper 2181
+      interval: 10s
+      timeout: 2s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      TZ: America/New_York
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_HEAP_OPTS: -Xms1g -Xmx1g -XX:+UseStringDeduplication
+    healthcheck:
+      test: nc -z localhost 9092
+      interval: 15s
+      timeout: 2s
+      retries: 10
+
+  elastic:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
+    hostname: elastic
+    container_name: elastic
+    volumes:
+    - ./plugins/elastic:/usr/share/elasticsearch/plugins
+    environment:
+      TZ: America/New_York
+      ES_JAVA_OPTS: -Xms2g -Xmx2g -XX:+UseStringDeduplication
+      discovery.type: single-node
+      bootstrap.memory_lock: true
+      xpack.monitoring.collection.enabled: true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: curl -f -I http://localhost:9200
+      interval: 30s
+      timeout: 2s
+      retries: 10
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.16.3
+    hostname: kibana
+    container_name: kibana
+    depends_on:
+      elastic:
+        condition: service_healthy
+    ports:
+    - 5601:5601
+    environment:
+      TZ: America/New_York
+      ELASTICSEARCH_HOSTS: http://elastic:9200
+    healthcheck:
+      test: curl -f -I http://localhost:5601
+      interval: 30s
+      timeout: 2s
+      retries: 10
+
+  database:
+    image: postgres:14
+    hostname: database
+    container_name: database
+    environment:
+      TZ: America/New_York
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: pg_isready -U postgres
+      interval: 5s
+      timeout: 1s
+      retries: 10
+
+  opennms:
+    image: opennms/horizon:31.0.2
+    hostname: opennms
+    container_name: opennms
+    depends_on:
+      database:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+    command: [ -s ]
+    ports:
+    - 8980:8980
+    - 8101:8101
+    volumes:
+    - ./config/opennms:/opt/opennms-etc-overlay
+    environment:
+      TZ: America/New_York
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      OPENNMS_CASSANDRA_HOSTNAME: cassandra
+      OPENNMS_TIMESERIES_STRATEGY: newts
+      JAVA_OPTS: -Xms4g -Xmx4g -XX:+UseStringDeduplication
+    healthcheck:
+      test: curl -f -I http://localhost:8980/opennms/login.jsp
+      interval: 30s
+      timeout: 1s
+      retries: 10
+
+  minion:
+    image: opennms/minion:31.0.2
+    hostname: minion
+    container_name: minion
+    depends_on:
+      kafka:
+        condition: service_healthy
+      opennms:
+        condition: service_healthy
+    command: [ -c ]
+    ports:
+    - 8201:8201
+    - 1162:1162/udp
+    - 1514:1514/udp
+    - 9999:9999/udp
+    volumes:
+    - ./config/minion:/opt/minion-etc-overlay
+    environment:
+      TZ: America/New_York
+      MINION_ID: minion
+      MINION_LOCATION: Docker
+      OPENNMS_HTTP_URL: http://opennms:8980/opennms
+      OPENNMS_HTTP_USER: admin
+      OPENNMS_HTTP_PASS: admin
+      JAVA_OPTS: -Xms1g -Xmx1g -XX:+UseStringDeduplication
+    healthcheck:
+      test: /health.sh
+      interval: 30s
+      timeout: 5s
+      retries: 10
+
+  sentinel:
+    image: opennms/sentinel:31.0.2 # Flow adapters are not working on newer versions
+    hostname: sentinel
+    container_name: sentinel
+    depends_on:
+      database:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      elastic:
+        condition: service_healthy
+      opennms: # To ensure the database exists
+        condition: service_healthy
+    command: [ -c ]
+    ports:
+    - 8301:8301
+    volumes:
+    - ./config/sentinel:/opt/sentinel-etc-overlay
+    environment:
+      TZ: America/New_York
+      SENTINEL_ID: sentinel
+      SENTINEL_LOCATION: Docker
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: opennms
+      POSTGRES_USER: opennms
+      POSTGRES_PASSWORD: opennms
+      OPENNMS_HTTP_URL: http://opennms:8980/opennms
+      OPENNMS_HTTP_USER: admin
+      OPENNMS_HTTP_PASS: admin
+      JAVA_OPTS: -Xms2g -Xmx2g -XX:+UseStringDeduplication
+    healthcheck:
+      test: /health.sh
+      interval: 30s
+      timeout: 5s
+      retries: 10
+
+  helm:
+    image: opennms/helm:8.0.4
+    hostname: helm
+    container_name: helm
+    depends_on:
+      opennms:
+        condition: service_healthy
+    ports:
+    - 3000:3000
+    volumes:
+    - ./config/grafana/datasources/:/etc/grafana/provisioning/datasources/
+    - ./config/grafana/plugins/:/etc/grafana/provisioning/plugins/
+    environment:
+      TZ: America/New_York
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:3000/login || exit 1
+      interval: 10s
+      timeout: 2s
+      retries: 10
