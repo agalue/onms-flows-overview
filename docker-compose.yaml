@@ -51,8 +51,26 @@ services:
       timeout: 2s
       retries: 10
 
+  akhq:
+    image: tchiotludo/akhq
+    hostname: akhq
+    container_name: akhq
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+    - 8080:8080
+    volumes:
+    - ./config/akhq/application.yml:/app/application.yml
+    - ./config/akhq/protobuf:/app/protobuf
+    healthcheck:
+      test: curl -f -I http://localhost:8080/ui
+      interval: 30s
+      timeout: 2s
+      retries: 10
+
   elastic:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.5
     hostname: elastic
     container_name: elastic
     volumes:
@@ -74,7 +92,7 @@ services:
       retries: 10
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.16.3
+    image: docker.elastic.co/kibana/kibana:7.17.5
     hostname: kibana
     container_name: kibana
     depends_on:
@@ -171,7 +189,7 @@ services:
       retries: 10
 
   sentinel:
-    image: opennms/sentinel:31.0.2 # Flow adapters are not working on newer versions
+    image: opennms/sentinel:31.0.2
     hostname: sentinel
     container_name: sentinel
     depends_on:

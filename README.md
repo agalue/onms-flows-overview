@@ -40,7 +40,7 @@ Here is how I configured it:
 daemonize: false
 debug: true
 interface: en0
-aggregate: src_host, dst_host, in_iface, out_iface, timestamp_start, timestamp_end, src_port, dst_port, proto, tos, tcpflags
+aggregate: src_host, dst_host, src_port, dst_port, proto, tos
 plugins: nfprobe[en0]
 nfprobe_receiver: localhost:9999
 nfprobe_version: 9
@@ -50,7 +50,7 @@ pre_tag_map: /opt/pmacct/cfg/pretag.map
 timestamps_secs: true
 ```
 
-I'm running the process in the foreground (`daemonize: false`), showing DEBUG messages (`debug: true`), and inspecting the WiFi NIC on my Mac (`interface: en0`) to generate flows from the packets it is observing (as `pmaccrd` should put the interface in promiscuous or monitor mode). The flows will be forwarded to port 9999 locally (`nfprobe_receiver: localhost:9999`) using Netflow 9 (`plugins: nfprobe[en0]` and `nfprobe_receiver: localhost:9999`).
+I'm running the process in the foreground (`daemonize: false`), showing DEBUG messages (`debug: true`), and inspecting the WiFi NIC on my Mac (`interface: en0`) to generate flows from the packets it is observing (as `pmacctd` should put the interface in promiscuous or monitor mode). The flows will be forwarded to port 9999 locally (`nfprobe_receiver: localhost:9999`) using NetFlow 9 (`plugins: nfprobe[en0]` and `nfprobe_version: 9`).
 
 The direction and ifindex configuration are crucial and are configured on `pretag.map` file, which has the following content:
 
@@ -67,14 +67,14 @@ set_tag2=6 filter='ether src 00:00:00:00:00:00' label=eval_ifindexes
 set_tag2=6 filter='ether dst 00:00:00:00:00:00'
 ```
 
-Besides updating the MAC Address to your needs (in my case the address for `en0`), you must update the number right after `set_tag2` to be the index of your interface. On macOS, the easiest way is to have `snmpd` running, so you can monitor your host via SNMP and locate the interface index:
+Besides updating the MAC Address to your needs (in my case the address for `en0`), you must update the number right after `set_tag2` to be the `ifIndex` of your interface. On macOS, the easiest way is to have `snmpd` running, so you can monitor your host via SNMP and locate the interface index:
 
 ```
 ❯ snmpwalk -v 2c -c public 192.168.0.100 ifDescr | grep en0
 IF-MIB::ifDescr.6 = STRING: en0
 ```
 
-As you can see, the index is 6.
+As you can see, the `ifIndex` is 6.
 
 The reference article explains how to do it on Linux.
 
