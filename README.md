@@ -91,7 +91,7 @@ First, configure `snmpd` and use `public` for the community string on your machi
 Then, use the following as an example of how to build the requisition for the flow generator/sender, assuming it is running directly on your machine.
 
 ```bash
-GATEWAY_IP=$(docker network inspect flows-overview_default \
+GATEWAY_IP=$(docker network inspect onms-flows-overview_default \
   --format "{{ json .IPAM.Config }}" | jq -r '.[].Gateway')
 
 LOCAL_INTF="en0"
