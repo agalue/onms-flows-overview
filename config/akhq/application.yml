@@ -4,12 +4,12 @@ akhq:
       properties:
         bootstrap.servers: kafka:9092
       deserialization:
+        # https://akhq.io/docs/configuration/protobuf.html
         protobuf:
-          # https://akhq.io/docs/configuration/protobuf.html
-          # https://github.com/OpenNMS/opennms/blob/master/features/flows/kafka-persistence/src/main/proto/flowdocument.proto
-          # protoc --descriptor_set_out=flowdocument.desc --include_source_info --include_imports flowdocument.proto
           descriptors-folder: /app/protobuf
           topics-mapping:
-          - topic-regex: opennms_flows
+          # https://github.com/OpenNMS/opennms/blob/master/features/flows/kafka-persistence/src/main/proto/flowdocument.proto
+          # protoc --descriptor_set_out=flowdocument.desc --include_source_info --include_imports flowdocument.proto
+          - topic-regex: OpenNMS_Flows
             descriptor-file: flowdocument.desc
             value-message-type: FlowDocument
