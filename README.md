@@ -3,14 +3,14 @@
 The provided Docker Compose will start a single instance of the following components:
 
 * Cassandra (for OpenNMS)
-* Zookeeper (for Kafka)
-* Kafka
+* Redpanda (faster alternative to Kafka)
+* Redpanda Console (port 8000 exposed)
 * Elasticsearch with the provided Drift plugin (version must match)
 * Kibana (port 5601 exposed)
-* PostgreSQL
-* OpenNMS (ports 8980 and 8101 exposed)
-* Minion (ports 9999 and 8201 exposed)
-* Sentinel (port 8301 exposed)
+* PostgreSQL (for OpenNMS)
+* OpenNMS Horizon (ports 8980 and 8101 exposed)
+* OpenNMS Minion (ports 9999 and 8201 exposed)
+* OpenNMS Sentinel (port 8301 exposed)
 * Grafana with OpenNMS Helm (port 3000 exposed)
 
 > The focus here is flows, which is why the persistence of Streaming Telemetry data in Cassandra for Sentinel is not enabled.
@@ -18,7 +18,7 @@ The provided Docker Compose will start a single instance of the following compon
 Once everything is running, you can configure your flow generator to send flows to your Docker Host at port 9999, and the Minion will receive and process them. Keep in mind that when running Docker for Mac or Docker for Windows, due to the network behavior, UDP packets will appear as coming from the gateway address instead of the flow sender IP address. The following can be used to get that IP
 
 ```bash
-docker network inspect flows-overview_default \
+docker network inspect onms-flows-overview_default \
   --format "{{ json .IPAM.Config }}" | jq -r '.[].Gateway'
 ```
 
@@ -39,7 +39,7 @@ Here is how I configured it:
 # https://github.com/pmacct/pmacct/blob/master/CONFIG-KEYS
 daemonize: false
 debug: true
-interface: en0
+pcap_interface: en0
 aggregate: src_host, dst_host, src_port, dst_port, proto, tos
 plugins: nfprobe[en0]
 nfprobe_receiver: localhost:9999
