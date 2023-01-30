@@ -15,59 +15,48 @@ services:
       timeout: 5s
       retries: 10
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.0
-    hostname: zookeeper
-    container_name: zookeeper
+  redpanda:
+    image: vectorized/redpanda:latest
+    hostname: redpanda
+    container_name: redpanda
+    command:
+    - redpanda
+    - start
+    - --kafka-addr internal://0.0.0.0:9092
+    - --advertise-kafka-addr internal://redpanda:9092
+    - --pandaproxy-addr internal://0.0.0.0:8082
+    - --advertise-pandaproxy-addr internal://redpanda:8082
+    - --schema-registry-addr redpanda:8081
+    - --rpc-addr redpanda:33145
+    - --advertise-rpc-addr redpanda:33145
+    - --overprovisioned
+    - --smp 1
+    - --memory 1G
+    - --reserve-memory 0M
+    - --node-id 0
+    - --check=false
     environment:
       TZ: America/New_York
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOO_4LW_COMMANDS_WHITELIST: ruok,stat
     healthcheck:
-      test: echo ruok | nc zookeeper 2181
-      interval: 10s
-      timeout: 2s
-      retries: 10
-
-  kafka:
-    image: confluentinc/cp-kafka:7.3.0
-    hostname: kafka
-    container_name: kafka
-    depends_on:
-      zookeeper:
-        condition: service_healthy
-    environment:
-      TZ: America/New_York
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_HEAP_OPTS: -Xms1g -Xmx1g -XX:+UseStringDeduplication
-    healthcheck:
-      test: nc -z localhost 9092
+      test: rpk cluster health
       interval: 15s
       timeout: 2s
-      retries: 10
 
-  akhq:
-    image: tchiotludo/akhq
-    hostname: akhq
-    container_name: akhq
+  console:
+    image: vectorized/console:latest
+    hostname: console
+    container_name: console
     depends_on:
-      kafka:
+      redpanda:
         condition: service_healthy
     ports:
-    - 8080:8080
+    - 8000:8080
     volumes:
-    - ./config/akhq/application.yml:/app/application.yml
-    - ./config/akhq/protobuf:/app/protobuf
-    healthcheck:
-      test: curl -f -I http://localhost:8080/ui
-      interval: 30s
-      timeout: 2s
-      retries: 10
+    - ./config/redpanda/console-config.yaml:/tmp/config.yml
+    - ./config/redpanda/protobuf/:/tmp/protos/
+    environment:
+      TZ: America/New_York
+      CONFIG_FILEPATH: /tmp/config.yml
 
   elastic:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.5
@@ -126,13 +115,13 @@ services:
       retries: 10
 
   opennms:
-    image: opennms/horizon:31.0.2
+    image: opennms/horizon:31.0.3
     hostname: opennms
     container_name: opennms
     depends_on:
       database:
         condition: service_healthy
-      kafka:
+      redpanda:
         condition: service_healthy
       cassandra:
         condition: service_healthy
@@ -158,11 +147,11 @@ services:
       retries: 10
 
   minion:
-    image: opennms/minion:31.0.2
+    image: opennms/minion:31.0.3
     hostname: minion
     container_name: minion
     depends_on:
-      kafka:
+      redpanda:
         condition: service_healthy
       opennms:
         condition: service_healthy
@@ -189,13 +178,13 @@ services:
       retries: 10
 
   sentinel:
-    image: opennms/sentinel:31.0.2
+    image: opennms/sentinel:31.0.3
     hostname: sentinel
     container_name: sentinel
     depends_on:
       database:
         condition: service_healthy
-      kafka:
+      redpanda:
         condition: service_healthy
       elastic:
         condition: service_healthy
