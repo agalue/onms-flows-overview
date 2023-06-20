@@ -1,5 +1,5 @@
 apiVersion: 1
 
 apps:
-- type: opennms-helm-app
+- type: opennms-opennms-app
   disabled: false

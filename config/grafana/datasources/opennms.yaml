@@ -3,7 +3,7 @@ apiVersion: 1
 datasources:
 
 - name: OpenNMS-Performance
-  type: opennms-helm-performance-datasource
+  type: opennms-performance-datasource
   isDefault: true
   editable: true
   access: proxy
@@ -14,7 +14,7 @@ datasources:
     basicAuthPassword: admin
 
 - name: OpenNMS-Entities
-  type: opennms-helm-entity-datasource
+  type: opennms-entity-datasource
   editable: true
   access: proxy
   url: http://opennms:8980/opennms
@@ -24,7 +24,7 @@ datasources:
     basicAuthPassword: admin
 
 - name: OpenNMS-Flow
-  type: opennms-helm-flow-datasource
+  type: opennms-flow-datasource
   editable: true
   access: proxy
   url: http://opennms:8980/opennms
