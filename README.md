@@ -157,3 +157,9 @@ curl -v -u "admin:admin" -X PUT \
 # Verification
 
 You can check the Elasticsearch Indices via Kibana or look at the Flows Dashboard on Grafana after a few minutes of importing the node.
+
+# Testing multiple independent environments
+
+Under certain circumstances, it would be helpful to send the same Flow Packets to different environments simultaneously for comparison or other purposes (like comparing features from one OpenNMS version versus another).
+
+We can use [samplicator](https://github.com/sleinen/samplicator) to receive the Flows from `pmacctd` and forward them to multiple destinations (even on the same machine) for that purpose.
